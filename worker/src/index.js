@@ -206,7 +206,7 @@ async function state(env, person) {
     id: p.id,
     name: p.name,
     household: p.household,
-    hasNotes: phase === "register" ? undefined : !!p.has_notes,
+    hasNotes: me.isOrganiser ? !!p.has_notes : undefined,
   }));
   let match = null;
   if (phase === "drawn") {
@@ -300,9 +300,7 @@ async function route(request, env) {
     if (typeof body.notes !== "string") throw new ApiError(400, "Invalid notes.");
     const notes = body.notes.replace(/\r\n/g, "\n").trim();
     if (notes.length > MAX_NOTES) throw new ApiError(400, `Notes must be under ${MAX_NOTES} characters.`);
-    const result = await env.DB.prepare(`UPDATE people SET notes = ? WHERE id = ? AND ${PHASE} <> 'register'`)
-      .bind(notes, person.id).run();
-    if (!result.meta.changes) throw new ApiError(409, "Notes open once sign-ups close.");
+    await env.DB.prepare("UPDATE people SET notes = ? WHERE id = ?").bind(notes, person.id).run();
     return { ok: true };
   }
 

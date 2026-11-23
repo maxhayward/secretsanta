@@ -179,11 +179,11 @@
     if (state.phase === "register") {
       body = [
         h("p", {}, "Share this site and invite code: ", h("code", {}, state.inviteCode)),
-        act("Close sign-ups and start notes", phaseAction("close", "Registration is closed. Everyone can now add their notes."), ""),
+        act("Close sign-ups", phaseAction("close", "Sign-ups are closed. You can draw the names when everyone's ready."), ""),
       ];
     } else if (state.phase === "notes") {
       body = [
-        h("p", {}, "When everyone has added their notes, draw the names. You won't see the results."),
+        h("p", {}, `${state.people.filter((person) => person.hasNotes).length} of ${state.people.length} people have added notes. When you're ready, draw the names. You'll only see your own match.`),
         act("Draw names", phaseAction("draw", "The names are drawn! Everyone can log in to see who they got."), ""),
         act("Reopen sign-ups", phaseAction("reopen", "Registration is open again.")),
       ];
@@ -199,7 +199,7 @@
   }
 
   function personRow(person, state) {
-    const status = state.phase === "register" ? "" : ` · ${person.hasNotes ? "✓ notes added" : "no notes yet"}`;
+    const status = state.me.isOrganiser ? ` · ${person.hasNotes ? "✓ notes added" : "no notes yet"}` : "";
     let controls = null;
     if (state.me.isOrganiser && person.id !== state.me.id) {
       controls = h("div", { class: "actions" },
@@ -228,32 +228,28 @@
       root.replaceChildren(...banner(), passwordCard("Choose a new password", "You logged in with a temporary password. Pick your own to continue."));
       return;
     }
-    const labels = [["register", "1. Sign up"], ["notes", "2. Add notes"], ["drawn", "3. Names drawn"]];
-    const nodes = [...banner(), h("h1", {}, `Hello, ${state.me.name}`),
-      h("ol", { class: "steps" }, labels.map(([key, label]) =>
-        h("li", key === state.phase ? { class: "on", "aria-current": "step" } : {}, label)))];
+    const nodes = [...banner(), h("h1", { class: "greeting" }, `Hello, ${state.me.name}`)];
 
-    if (state.phase === "register") {
-      nodes.push(h("section", { class: "card" }, h("h2", {}, "Waiting for everyone to join"),
-        h("p", { class: "muted" }, "Once the organiser closes sign-ups, you can add your gift notes here.")));
-    }
-    if (state.match) {
-      nodes.push(h("details", { class: "reveal" }, h("summary", {}, "Tap to reveal who you got"),
-        h("p", { class: "recipient" }, state.match.name), h("p", {}, "Keep it secret!"),
-        h("div", { class: "wish" }, state.match.notes || "They haven't added any notes yet. Check back later.")));
-    }
-    if (state.phase !== "register") {
-      const notes = h("textarea", { id: "f-notes", name: "notes", maxLength: 2000 });
-      notes.value = state.me.notes;
-      nodes.push(h("section", { class: "card" }, h("h2", {}, "What would you like?"),
-        h("p", { class: "muted" }, "Only your Secret Santa can read this. You can update it at any time."),
-        form("Save notes", [h("label", { htmlFor: "f-notes" }, "Gift ideas, sizes, things to avoid"), notes], async (values) => {
-          await api("PUT", "/api/notes", values);
-          flash = { message: "Your notes are saved." };
-          await render();
-        })));
-    }
-    nodes.push(h("section", { class: "card" }, h("h2", {}, `Who's taking part (${state.people.length})`),
+    const notes = h("textarea", { id: "f-notes", name: "notes", maxLength: 2000 });
+    notes.value = state.me.notes;
+    const notesCard = h("section", { class: "card" }, h("h2", {}, "Your gift notes"),
+      h("p", { class: "muted" }, "Only your Secret Santa can read this. You can update it at any time."),
+      form("Save notes", [h("label", { htmlFor: "f-notes" }, "Gift ideas, sizes, things to avoid"), notes], async (values) => {
+        await api("PUT", "/api/notes", values);
+        flash = { message: "Your notes are saved." };
+        await render();
+      }));
+
+    const drawCard = h("section", { class: "card" }, h("h2", {}, "View draw"),
+      state.match
+        ? h("details", { class: "reveal" }, h("summary", {}, "Tap to reveal who you got"),
+            h("p", { class: "recipient" }, state.match.name), h("p", {}, "Keep it secret!"),
+            h("div", { class: "wish" }, state.match.notes || "They haven't added any notes yet. Check back later."))
+        : h("p", { class: "muted" }, "The names haven't been drawn yet. Check back here once the draw is finished."));
+
+    // Once the draw is done, the result is what people came for.
+    nodes.push(...(state.match ? [drawCard, notesCard] : [notesCard, drawCard]));
+    nodes.push(h("section", { class: "card" }, h("h2", {}, `Participants (${state.people.length})`),
       h("ul", { class: "people" }, state.people.map((person) => personRow(person, state)))));
     if (state.me.isOrganiser) nodes.push(organiserCard(state));
     nodes.push(passwordCard("Change password", "Optional."));

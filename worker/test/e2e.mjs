@@ -45,7 +45,8 @@ assert.equal(bobStart.me.isOrganiser, false);
 assert.equal(bobStart.inviteCode, undefined);
 
 // Phase rules
-assert.equal((await call("PUT", "/api/notes", tokens.Bob, { notes: "early" })).status, 409);
+assert.equal((await call("PUT", "/api/notes", tokens.Bob, { notes: "early" })).status, 200);
+assert.equal((await call("GET", "/api/me", tokens.Bob)).data.me.notes, "early");
 assert.equal((await phase(tokens.Bob, "close")).status, 403);
 assert.equal((await phase(tokens.Ann, "close")).status, 200);
 assert.equal((await call("POST", "/api/register", null, { invite: INVITE, name: "Late", household: "Oak", password: "password1" })).status, 403);
@@ -86,7 +87,8 @@ for (const [name] of family) {
   assert.ok(!JSON.stringify(data).toLowerCase().includes("@example.com"), "email exposed");
   const leaked = new Set(JSON.stringify(data).match(/wish-\w+/g));
   assert.deepEqual(leaked, new Set([`wish-${name}`, `wish-${data.match.name}`]), `${name} saw other notes`);
-  for (const person of data.people) assert.deepEqual(Object.keys(person).sort(), ["hasNotes", "household", "id", "name"]);
+  const fields = data.me.isOrganiser ? ["hasNotes", "household", "id", "name"] : ["household", "id", "name"];
+  for (const person of data.people) assert.deepEqual(Object.keys(person).sort(), fields);
 }
 assert.equal(received.size, family.length);
 

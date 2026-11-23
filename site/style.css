@@ -30,16 +30,14 @@ button.danger{background:#a8322b}
 button.link{color:inherit;background:none;padding:0;margin:0;font-weight:600;text-decoration:underline}
 .notice,.error{border-radius:8px;padding:10px 14px;margin-bottom:16px;font-weight:600}
 .notice{background:var(--soft)}.error{color:#fff;background:#a8322b}
-.steps{display:flex;gap:6px;list-style:none;padding:0;margin:0 0 18px;font-size:.86rem}
-.steps li{flex:1;text-align:center;padding:6px 4px;border-radius:7px;background:var(--line);color:var(--muted)}
-.steps li.on{background:var(--green);color:#fff;font-weight:700}
+.greeting{margin-bottom:16px}
 .people{list-style:none;margin:0;padding:0}
 .people li{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
 padding:9px 0;border-top:1px solid var(--line)}
 .people li:first-child{border-top:0}
 .people strong,.people .muted{display:block;overflow-wrap:anywhere}
 .actions{display:flex;gap:6px;flex-wrap:wrap}
-details.reveal{background:var(--green);color:#fff;border-radius:14px;padding:22px;margin-bottom:16px;text-align:center}
+details.reveal{background:var(--green);color:#fff;border-radius:14px;padding:22px;text-align:center}
 details.reveal summary{cursor:pointer;font:700 1.25rem Georgia,serif}
 .recipient{font:700 2.3rem/1.2 Georgia,serif;margin:14px 0 4px;overflow-wrap:anywhere}
 .wish{white-space:pre-wrap;overflow-wrap:anywhere;text-align:left;background:var(--card);color:var(--ink);
