@@ -13,8 +13,10 @@ CREATE TABLE IF NOT EXISTS people (
   password TEXT NOT NULL,
   notes TEXT NOT NULL DEFAULT '',
   is_organiser INTEGER NOT NULL DEFAULT 0,
-  must_change INTEGER NOT NULL DEFAULT 0
+  must_change INTEGER NOT NULL DEFAULT 0,
+  email TEXT NOT NULL DEFAULT ''
 );
+CREATE UNIQUE INDEX IF NOT EXISTS people_email ON people (email);
 
 CREATE TABLE IF NOT EXISTS sessions (
   token_hash TEXT PRIMARY KEY,

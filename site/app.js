@@ -123,7 +123,7 @@
     root.replaceChildren(...banner(),
       h("section", { class: "card" }, h("h1", {}, "Welcome back"),
         form("Log in", [
-          field("Your name", "name", { maxLength: 40, autocomplete: "username" }),
+          field("Email", "email", { type: "email", maxLength: 254, autocomplete: "username" }),
           field("Password", "password", { type: "password", autocomplete: "current-password" }),
         ], (values) => enter("/api/login", values))),
       h("p", { class: "muted" }, "First time here? ", h("button", { type: "button", class: "link", on: { click: registerView } }, "Join the family draw"), "."));
@@ -141,7 +141,8 @@
         h("section", { class: "card" }, h("h1", {}, "Join the draw"),
           h("p", { class: "muted" }, "You won't be matched with anyone in your own household."),
           form("Join", [
-            field("Your name", "name", { maxLength: 40, autocomplete: "username" }),
+            field("Your name", "name", { maxLength: 40, autocomplete: "name" }),
+            field("Email", "email", { type: "email", maxLength: 254, autocomplete: "username" }),
             h("label", { htmlFor: "f-household" }, "Household"), select,
             field("Choose a password", "password", { type: "password", minLength: 8, autocomplete: "new-password" }),
           ], (values) => enter("/api/register", { ...values, invite }))),

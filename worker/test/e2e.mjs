@@ -23,16 +23,18 @@ assert.equal(preflight.headers.get("access-control-allow-origin"), null);
 // Households are only listed with a valid invite, and must be chosen from the list
 assert.equal((await call("POST", "/api/households", null, { invite: "NOPE" })).status, 403);
 assert.deepEqual((await call("POST", "/api/households", null, { invite: INVITE })).data.households, ["Oak", "Elm", "Ash"]);
-assert.equal((await call("POST", "/api/register", null, { invite: INVITE, name: "Mallory", household: "Made Up", password: "password1" })).status, 400);
+assert.equal((await call("POST", "/api/register", null, { invite: INVITE, name: "Mallory", email: "mallory@example.com", household: "Made Up", password: "password1" })).status, 400);
+assert.equal((await call("POST", "/api/register", null, { invite: INVITE, name: "Mallory", email: "not-an-email", household: "Oak", password: "password1" })).status, 400);
 
 const family = [["Ann", "Oak"], ["Bob", "Oak"], ["Cy", "Elm"], ["Di", "Elm"], ["Ed", "Ash"], ["Flo", "Ash"]];
 const tokens = {};
 for (const [name, household] of family) {
-  const result = await call("POST", "/api/register", null, { invite: INVITE.toLowerCase(), name, household, password: "password1" });
+  const result = await call("POST", "/api/register", null, { invite: INVITE.toLowerCase(), name, email: ` ${name}@Example.com `, household, password: "password1" });
   assert.equal(result.status, 200, name);
   tokens[name] = result.data.token;
 }
-assert.equal((await call("POST", "/api/register", null, { invite: INVITE, name: "ann", household: "Oak", password: "password1" })).status, 409);
+assert.equal((await call("POST", "/api/register", null, { invite: INVITE, name: "ann", email: "other@example.com", household: "Oak", password: "password1" })).status, 409);
+assert.equal((await call("POST", "/api/register", null, { invite: INVITE, name: "Other", email: "ANN@example.com", household: "Oak", password: "password1" })).status, 409);
 
 const annStart = (await call("GET", "/api/me", tokens.Ann)).data;
 assert.equal(annStart.me.isOrganiser, true);
@@ -57,8 +59,8 @@ const bobId = bobStart.me.id;
 const reset = await call("POST", "/api/admin/reset", tokens.Ann, { id: bobId });
 assert.equal(reset.status, 200);
 assert.equal((await call("GET", "/api/me", tokens.Bob)).status, 401);
-assert.equal((await call("POST", "/api/login", null, { name: "bob", password: "password1" })).status, 401);
-const temp = await call("POST", "/api/login", null, { name: "BOB", password: reset.data.temporary });
+assert.equal((await call("POST", "/api/login", null, { email: "bob@example.com", password: "password1" })).status, 401);
+const temp = await call("POST", "/api/login", null, { email: "BOB@example.com", password: reset.data.temporary });
 assert.equal(temp.status, 200);
 tokens.Bob = temp.data.token;
 
@@ -80,6 +82,7 @@ for (const [name] of family) {
   assert.notEqual(households[name], households[data.match.name], `${name} got own household`);
   assert.equal(data.match.notes, `<b>wish-${data.match.name}</b>`);
   received.add(data.match.name);
+  assert.ok(!JSON.stringify(data).toLowerCase().includes("@example.com"), "email exposed");
   const leaked = new Set(JSON.stringify(data).match(/wish-\w+/g));
   assert.deepEqual(leaked, new Set([`wish-${name}`, `wish-${data.match.name}`]), `${name} saw other notes`);
   for (const person of data.people) assert.deepEqual(Object.keys(person).sort(), ["hasNotes", "household", "id", "name"]);
@@ -95,7 +98,7 @@ assert.equal((await call("POST", "/api/logout", tokens.Di)).status, 200);
 assert.equal((await call("GET", "/api/me", tokens.Di)).status, 401);
 
 // Login throttle
-for (let i = 0; i < 10; i++) assert.equal((await call("POST", "/api/login", null, { name: "Flo", password: "wrongpass" })).status, 401);
-assert.equal((await call("POST", "/api/login", null, { name: "Flo", password: "password1" })).status, 429);
+for (let i = 0; i < 10; i++) assert.equal((await call("POST", "/api/login", null, { email: "flo@example.com", password: "wrongpass" })).status, 401);
+assert.equal((await call("POST", "/api/login", null, { email: "flo@example.com", password: "password1" })).status, 429);
 
 console.log("e2e passed");

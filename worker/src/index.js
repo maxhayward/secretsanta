@@ -22,6 +22,8 @@ class ApiError extends Error {
 const now = () => Math.floor(Date.now() / 1000);
 const clean = (value) => (typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "");
 const keyFor = (value) => clean(value).toLocaleLowerCase("en-GB");
+const emailKey = (value) => (typeof value === "string" ? value.trim().toLowerCase() : "");
+const validEmail = (email) => email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const toB64 = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes)));
 const fromB64 = (text) => Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
 
@@ -138,6 +140,8 @@ async function register(request, env, body) {
   if (!name || name.length > MAX_LABEL) {
     throw new ApiError(400, `Your name is required, up to ${MAX_LABEL} characters.`);
   }
+  const email = emailKey(body.email);
+  if (!validEmail(email)) throw new ApiError(400, "Please enter a valid email address.");
   const household = await env.DB.prepare("SELECT name FROM households WHERE name = ?")
     .bind(typeof body.household === "string" ? body.household : "").first("name");
   if (!household) throw new ApiError(400, "Please choose your household from the list.");
@@ -146,10 +150,13 @@ async function register(request, env, body) {
   let result;
   try {
     result = await env.DB.prepare(
-      `INSERT INTO people (name, name_key, household, household_key, password, is_organiser)
-       SELECT ?, ?, ?, ?, ?, (SELECT COUNT(*) = 0 FROM people) WHERE ${PHASE} = 'register'`,
-    ).bind(name, keyFor(name), household, keyFor(household), hashed).run();
+      `INSERT INTO people (name, name_key, email, household, household_key, password, is_organiser)
+       SELECT ?, ?, ?, ?, ?, ?, (SELECT COUNT(*) = 0 FROM people) WHERE ${PHASE} = 'register'`,
+    ).bind(name, keyFor(name), email, household, keyFor(household), hashed).run();
   } catch (error) {
+    if (String(error).includes("people.email")) {
+      throw new ApiError(409, "That email has already joined. Try logging in instead.");
+    }
     if (String(error).includes("UNIQUE")) {
       throw new ApiError(409, "Someone with that name has already joined. Add a surname or initial.");
     }
@@ -160,17 +167,19 @@ async function register(request, env, body) {
 }
 
 async function login(request, env, body) {
-  const name = clean(body.name);
+  const email = emailKey(body.email);
   const password = typeof body.password === "string" ? body.password : "";
-  const key = `${request.headers.get("CF-Connecting-IP") || "local"}:${keyFor(name)}`;
+  const key = `${request.headers.get("CF-Connecting-IP") || "local"}:${email}`;
   if (await throttled(env, key)) throw new ApiError(429, "Too many attempts. Please try again in 15 minutes.");
-  const person = await env.DB.prepare("SELECT id, password FROM people WHERE name_key = ?").bind(keyFor(name)).first();
-  // Unknown names still do the hashing work, so response times don't reveal who has joined.
+  const person = email
+    ? await env.DB.prepare("SELECT id, password FROM people WHERE email = ?").bind(email).first()
+    : null;
+  // Unknown emails still do the hashing work, so response times don't reveal who has joined.
   const stored = person?.password || `${PBKDF2_ITERATIONS}$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=`;
   const valid = password.length <= MAX_PASSWORD && (await checkPassword(password, stored));
   if (!person || !valid) {
     await recordFailure(env, key);
-    throw new ApiError(401, "That name and password don't match.");
+    throw new ApiError(401, "That email and password don't match.");
   }
   await clearFailures(env, key);
   return { token: await createSession(env, person.id) };
