@@ -116,19 +116,31 @@ function validPassword(password) {
   }
 }
 
-async function register(request, env, body) {
-  const name = clean(body.name);
-  const household = clean(body.household);
+async function checkInvite(request, env, invite) {
   const key = `${request.headers.get("CF-Connecting-IP") || "local"}:invite`;
   if ((await getPhase(env)) !== "register") throw new ApiError(403, "Registration is closed.");
   if (await throttled(env, key)) throw new ApiError(429, "Too many attempts. Please try again in 15 minutes.");
-  if (!sameText(clean(body.invite).toUpperCase(), env.INVITE_CODE.toUpperCase())) {
+  if (!sameText(clean(invite).toUpperCase(), env.INVITE_CODE.toUpperCase())) {
     await recordFailure(env, key);
     throw new ApiError(403, "That invite code isn't right.");
   }
-  if (!name || !household || name.length > MAX_LABEL || household.length > MAX_LABEL) {
-    throw new ApiError(400, `Name and household are required, up to ${MAX_LABEL} characters.`);
+}
+
+async function listHouseholds(request, env, body) {
+  await checkInvite(request, env, body.invite);
+  const { results } = await env.DB.prepare("SELECT name FROM households ORDER BY id").all();
+  return { households: results.map((row) => row.name) };
+}
+
+async function register(request, env, body) {
+  const name = clean(body.name);
+  await checkInvite(request, env, body.invite);
+  if (!name || name.length > MAX_LABEL) {
+    throw new ApiError(400, `Your name is required, up to ${MAX_LABEL} characters.`);
   }
+  const household = await env.DB.prepare("SELECT name FROM households WHERE name = ?")
+    .bind(typeof body.household === "string" ? body.household : "").first("name");
+  if (!household) throw new ApiError(400, "Please choose your household from the list.");
   validPassword(body.password);
   const hashed = await hashPassword(body.password);
   let result;
@@ -251,6 +263,7 @@ async function route(request, env) {
     if (body === null || typeof body !== "object" || Array.isArray(body)) throw new ApiError(400, "Invalid request.");
   }
 
+  if (route === "POST /api/households") return listHouseholds(request, env, body);
   if (route === "POST /api/register") return register(request, env, body);
   if (route === "POST /api/login") return login(request, env, body);
 

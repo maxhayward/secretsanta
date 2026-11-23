@@ -20,15 +20,19 @@ assert.equal((await call("POST", "/api/register", null, { invite: "NOPE", name: 
 const preflight = await fetch(`${API}/api/me`, { method: "OPTIONS", headers: { Origin: "https://evil.example" } });
 assert.equal(preflight.headers.get("access-control-allow-origin"), null);
 
-// Registration, with households matched regardless of case and spacing
-const family = [["Ann", "Oak"], ["Bob", " oak "], ["Cy", "Elm"], ["Di", "ELM"], ["Ed", "Ash"], ["Flo", "Ash"]];
+// Households are only listed with a valid invite, and must be chosen from the list
+assert.equal((await call("POST", "/api/households", null, { invite: "NOPE" })).status, 403);
+assert.deepEqual((await call("POST", "/api/households", null, { invite: INVITE })).data.households, ["Oak", "Elm", "Ash"]);
+assert.equal((await call("POST", "/api/register", null, { invite: INVITE, name: "Mallory", household: "Made Up", password: "password1" })).status, 400);
+
+const family = [["Ann", "Oak"], ["Bob", "Oak"], ["Cy", "Elm"], ["Di", "Elm"], ["Ed", "Ash"], ["Flo", "Ash"]];
 const tokens = {};
 for (const [name, household] of family) {
   const result = await call("POST", "/api/register", null, { invite: INVITE.toLowerCase(), name, household, password: "password1" });
   assert.equal(result.status, 200, name);
   tokens[name] = result.data.token;
 }
-assert.equal((await call("POST", "/api/register", null, { invite: INVITE, name: "ann", household: "Z", password: "password1" })).status, 409);
+assert.equal((await call("POST", "/api/register", null, { invite: INVITE, name: "ann", household: "Oak", password: "password1" })).status, 409);
 
 const annStart = (await call("GET", "/api/me", tokens.Ann)).data;
 assert.equal(annStart.me.isOrganiser, true);
@@ -41,7 +45,7 @@ assert.equal(bobStart.inviteCode, undefined);
 assert.equal((await call("PUT", "/api/notes", tokens.Bob, { notes: "early" })).status, 409);
 assert.equal((await phase(tokens.Bob, "close")).status, 403);
 assert.equal((await phase(tokens.Ann, "close")).status, 200);
-assert.equal((await call("POST", "/api/register", null, { invite: INVITE, name: "Late", household: "Z", password: "password1" })).status, 403);
+assert.equal((await call("POST", "/api/register", null, { invite: INVITE, name: "Late", household: "Oak", password: "password1" })).status, 403);
 
 // Notes
 for (const [name] of family) {

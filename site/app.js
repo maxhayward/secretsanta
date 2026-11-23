@@ -130,16 +130,31 @@
   }
 
   function registerView() {
+    const alreadyJoined = () =>
+      h("p", { class: "muted" }, "Already joined? ", h("button", { type: "button", class: "link", on: { click: loginView } }, "Log in"), ".");
+
+    const details = (invite, households) => {
+      const select = h("select", { id: "f-household", name: "household", required: true },
+        h("option", { value: "", disabled: true, selected: true }, "Choose your household"),
+        households.map((name) => h("option", { value: name }, name)));
+      root.replaceChildren(
+        h("section", { class: "card" }, h("h1", {}, "Join the draw"),
+          h("p", { class: "muted" }, "You won't be matched with anyone in your own household."),
+          form("Join", [
+            field("Your name", "name", { maxLength: 40, autocomplete: "username" }),
+            h("label", { htmlFor: "f-household" }, "Household"), select,
+            field("Choose a password", "password", { type: "password", minLength: 8, autocomplete: "new-password" }),
+          ], (values) => enter("/api/register", { ...values, invite }))),
+        alreadyJoined());
+    };
+
     root.replaceChildren(
       h("section", { class: "card" }, h("h1", {}, "Join the draw"),
-        h("p", { class: "muted" }, "People in the same household won't be matched with each other, so everyone at one address should enter the same household name."),
-        form("Join", [
-          field("Family invite code", "invite", { autocomplete: "off" }),
-          field("Your name", "name", { maxLength: 40, autocomplete: "username" }),
-          field("Household", "household", { maxLength: 40, placeholder: "e.g. The Oak Lane lot" }),
-          field("Choose a password", "password", { type: "password", minLength: 8, autocomplete: "new-password" }),
-        ], (values) => enter("/api/register", values))),
-      h("p", { class: "muted" }, "Already joined? ", h("button", { type: "button", class: "link", on: { click: loginView } }, "Log in"), "."));
+        form("Continue", field("Family invite code", "invite", { autocomplete: "off" }), async ({ invite }) => {
+          const { households } = await api("POST", "/api/households", { invite });
+          details(invite, households);
+        })),
+      alreadyJoined());
   }
 
   function passwordCard(heading, intro) {
