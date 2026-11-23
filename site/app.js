@@ -5,6 +5,7 @@
   const root = document.getElementById("app");
   const account = document.getElementById("account");
   let flash = null;
+  let showSection = null;
 
   const storage = {
     get() { try { return localStorage.getItem(TOKEN_KEY); } catch { return memoryToken; } },
@@ -118,7 +119,13 @@
     await render();
   }
 
+  function leaveDashboard() {
+    showSection = null;
+    document.body.classList.remove("signed-in");
+  }
+
   function loginView() {
+    leaveDashboard();
     account.replaceChildren();
     root.replaceChildren(...banner(),
       h("section", { class: "card" }, h("h1", {}, "Welcome back"),
@@ -205,7 +212,7 @@
       controls = h("div", { class: "actions" },
         act("Reset password", async () => {
           const { name, temporary } = await api("POST", "/api/admin/reset", { id: person.id });
-          flash = { node: h("div", { class: "notice", role: "status" }, `Temporary password for ${name}: `, h("code", {}, temporary),
+          flash = { node: h("div", { class: "notice keep", role: "status" }, `Temporary password for ${name}: `, h("code", {}, temporary),
             h("br"), "Send it to them. They must change it when they log in.") };
           await render();
         }, "quiet", `Reset password for ${person.name}`),
@@ -222,13 +229,15 @@
     account.replaceChildren(act("Log out", async () => {
       await api("POST", "/api/logout").catch(() => {});
       storage.clear();
+      history.replaceState(null, "", location.pathname);
       await render();
     }));
     if (state.me.mustChange) {
+      leaveDashboard();
       root.replaceChildren(...banner(), passwordCard("Choose a new password", "You logged in with a temporary password. Pick your own to continue."));
       return;
     }
-    const nodes = [...banner(), h("h1", { class: "greeting" }, `Hello, ${state.me.name}`)];
+    const messages = banner();
 
     const notes = h("textarea", { id: "f-notes", name: "notes", maxLength: 2000 });
     notes.value = state.me.notes;
@@ -247,13 +256,37 @@
             h("div", { class: "wish" }, state.match.notes || "They haven't added any notes yet. Check back later."))
         : h("p", { class: "muted" }, "The names haven't been drawn yet. Check back here once the draw is finished."));
 
-    // Once the draw is done, the result is what people came for.
-    nodes.push(...(state.match ? [drawCard, notesCard] : [notesCard, drawCard]));
-    nodes.push(h("section", { class: "card" }, h("h2", {}, `Participants (${state.people.length})`),
-      h("ul", { class: "people" }, state.people.map((person) => personRow(person, state)))));
-    if (state.me.isOrganiser) nodes.push(organiserCard(state));
-    nodes.push(passwordCard("Change password", "Optional."));
-    root.replaceChildren(...nodes);
+    const sections = [
+      { id: "notes", label: "Gift notes", node: notesCard },
+      { id: "draw", label: "View draw", node: drawCard },
+      {
+        id: "participants",
+        label: "Participants",
+        node: h("section", { class: "card" }, h("h2", {}, `Participants (${state.people.length})`),
+          h("ul", { class: "people" }, state.people.map((person) => personRow(person, state)))),
+      },
+    ];
+    if (state.me.isOrganiser) sections.push({ id: "organiser", label: "Organiser", node: organiserCard(state) });
+    sections.push({ id: "account", label: "Account", node: passwordCard("Change password", "Optional.") });
+
+    const links = sections.map((section) => h("a", { href: `#${section.id}` }, section.label));
+    // Sections stay in the page while hidden, so unsaved notes survive moving between them.
+    showSection = () => {
+      const wanted = location.hash.slice(1);
+      const active = sections.some((section) => section.id === wanted) ? wanted : state.match ? "draw" : "notes";
+      sections.forEach((section, index) => {
+        section.node.hidden = section.id !== active;
+        if (section.id === active) links[index].setAttribute("aria-current", "page");
+        else links[index].removeAttribute("aria-current");
+      });
+    };
+    showSection();
+    document.body.classList.add("signed-in");
+    root.replaceChildren(
+      h("h1", { class: "greeting" }, `Hello, ${state.me.name}`),
+      h("div", { class: "dashboard" },
+        h("nav", { class: "menu", "aria-label": "Dashboard" }, links),
+        h("div", { class: "content" }, messages, sections.map((section) => section.node))));
   }
 
   async function render() {
@@ -265,6 +298,12 @@
       root.replaceChildren(h("div", { class: "error", role: "alert" }, problem.message), act("Try again", render, ""));
     }
   }
+
+  window.addEventListener("hashchange", () => {
+    if (!showSection) return;
+    root.querySelectorAll(".content > .notice:not(.keep), .content > .error").forEach((node) => node.remove());
+    showSection();
+  });
 
   render();
 })();
