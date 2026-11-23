@@ -109,6 +109,9 @@ async function authenticate(request, env) {
     `SELECT p.* FROM sessions s JOIN people p ON p.id = s.person_id WHERE s.token_hash = ? AND s.expires > ?`,
   ).bind(tokenHash, now()).first();
   if (!person) throw new ApiError(401, "Please log in.");
+  // The organiser is whoever holds the configured email, never the first to register.
+  const organiser = emailKey(env.ORGANISER_EMAIL);
+  person.is_organiser = !!organiser && person.email === organiser;
   return { person, tokenHash };
 }
 
@@ -151,7 +154,7 @@ async function register(request, env, body) {
   try {
     result = await env.DB.prepare(
       `INSERT INTO people (name, name_key, email, household, household_key, password, is_organiser)
-       SELECT ?, ?, ?, ?, ?, ?, (SELECT COUNT(*) = 0 FROM people) WHERE ${PHASE} = 'register'`,
+       SELECT ?, ?, ?, ?, ?, ?, 0 WHERE ${PHASE} = 'register'`,
     ).bind(name, keyFor(name), email, household, keyFor(household), hashed).run();
   } catch (error) {
     if (String(error).includes("people.email")) {

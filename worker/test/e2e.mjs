@@ -26,7 +26,8 @@ assert.deepEqual((await call("POST", "/api/households", null, { invite: INVITE }
 assert.equal((await call("POST", "/api/register", null, { invite: INVITE, name: "Mallory", email: "mallory@example.com", household: "Made Up", password: "password1" })).status, 400);
 assert.equal((await call("POST", "/api/register", null, { invite: INVITE, name: "Mallory", email: "not-an-email", household: "Oak", password: "password1" })).status, 400);
 
-const family = [["Ann", "Oak"], ["Bob", "Oak"], ["Cy", "Elm"], ["Di", "Elm"], ["Ed", "Ash"], ["Flo", "Ash"]];
+// Bob registers first to prove that joining first doesn't grant the organiser role.
+const family = [["Bob", "Oak"], ["Ann", "Oak"], ["Cy", "Elm"], ["Di", "Elm"], ["Ed", "Ash"], ["Flo", "Ash"]];
 const tokens = {};
 for (const [name, household] of family) {
   const result = await call("POST", "/api/register", null, { invite: INVITE.toLowerCase(), name, email: ` ${name}@Example.com `, household, password: "password1" });
