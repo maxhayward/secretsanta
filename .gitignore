@@ -1,0 +1,8 @@
+node_modules/
+.yarn/
+.wrangler/
+.dev.vars
+*.db
+*.db-*
+__pycache__/
+.DS_Store

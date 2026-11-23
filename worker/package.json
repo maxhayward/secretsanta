@@ -1,0 +1,12 @@
+{
+  "name": "secretsanta-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/draw.test.js",
+    "test:e2e": "node test/e2e.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4"
+  }
+}

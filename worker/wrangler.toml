@@ -1,0 +1,11 @@
+name = "secretsanta-api"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+
+[vars]
+ALLOWED_ORIGINS = "https://secretsanta.mph.sh"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "secretsanta"
+database_id = "284ef750-a42a-4060-91a1-fa0ab0693713"
